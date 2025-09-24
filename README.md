@@ -1,6 +1,5 @@
 # 🚀 Quickstart
 
-hallo
 
 1. Clone the repo
 
