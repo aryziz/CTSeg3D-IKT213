@@ -1,0 +1,19 @@
+preprocess:
+  normalize_pcts: [0.5, 99.5]
+  bias_correction: true
+  denoise: tv
+  tv_weight: 0.05
+
+seeds:
+  method: otsu
+  margin: 0.1
+  grad_percentile: 70
+  erosion_um: 1.0
+
+segment:
+  method: graphcut
+  band_width: 0.08
+
+post:
+  min_object_um: 1.0
+  fill_holes_um: 2.0
