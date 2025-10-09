@@ -1,0 +1,18 @@
+# pyproject.toml
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "CTSeg3D"
+version = "0.1.0"
+description = "Automated filtering and segmentation pipeline for XCT data"
+authors = [{name="Group 13"}]
+license = {text = "MIT"}
+requires-python = ">=3.9"
+
+[tool.setuptools]
+package-dir = {"" = "xctp"}
+
+[tool.setuptools.packages.find]
+where = ["xctp"]
