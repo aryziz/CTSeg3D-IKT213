@@ -24,9 +24,10 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-4. Add a data directory with tif data and a results subdirectory in it. 
+4. Add a data directory with tif data and a results subdirectory in it.
+5. Run `python xctp/preprocess.py` to test the preprocessing as it is implemented now.
 
-5. Install pre-commit hooks (Before committing changes, for developers)
+6. Install pre-commit hooks (Before committing changes, for developers)
 
 ```
 pip install pre-commit
