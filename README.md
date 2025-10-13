@@ -24,7 +24,9 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-4. Install pre-commit hooks (Before committing changes)
+4. Add a data directory with tif data and a results subdirectory in it. 
+
+5. Install pre-commit hooks (Before committing changes, for developers)
 
 ```
 pip install pre-commit
