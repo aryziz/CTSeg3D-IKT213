@@ -1,4 +1,4 @@
-# 🚀 Quickstart
+# 🚀 Quickstart - Installation Guide
 
 
 1. Clone the repo
@@ -24,7 +24,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-4. Install pre-commit hooks
+4. Install pre-commit hooks (Before committing changes)
 
 ```
 pip install pre-commit
@@ -48,8 +48,6 @@ CTSeg3D-IKT213/
 │   ├── seeds.py            # auto-seeding
 │   ├── segment.py          # graph-cut, random walker
 │   ├── postprocess.py      # cleanup
-│   ├── metrics.py          # porosity, tortuosity
 │   └── pipeline.py         # orchestrator
-├── notebooks/              # experiments + benchmarks
-└── tests/                  # pytest unit tests
+└── notebooks/              # experiments + benchmarks
 ```
