@@ -1,8 +1,10 @@
+from pathlib import Path
+
 import numpy as np
 import tifffile as tiff
 
 
-def read_tif(image_path: str) -> np.ndarray:
+def read_tif(image_path: str | Path) -> np.ndarray:
     """Read a tif image.
 
     Args:
@@ -37,6 +39,6 @@ def tif_to_float32(image: np.ndarray) -> np.ndarray:
     return image
 
 
-def save_stack(input_stack: np.ndarray, output_path: str) -> None:
+def save_stack(input_stack: np.ndarray, output_path: str | Path) -> None:
     print(f"Saving image to {output_path}")
     tiff.imwrite(output_path, input_stack)

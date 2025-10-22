@@ -1,11 +1,11 @@
-from typing import Tuple
+from typing import Any, Dict, Tuple
 
 import cv2 as cv
 import numpy as np
 import SimpleITK as sitk
 import tifffile as tiff
 from scipy.ndimage import gaussian_filter
-from skimage import restoration, util
+from skimage import exposure, restoration, util
 from skimage.filters import threshold_otsu
 
 
@@ -126,6 +126,117 @@ def gaussian_3d(volume: np.ndarray, sigma: float = 1.0) -> np.ndarray:
         A 3D numpy array representing the filtered volume.
     """
     return gaussian_filter(volume, sigma=sigma)
+
+
+def clahe_2d_opencv(
+    volume: np.ndarray,
+    clip_limit: float = 2.0,
+    tile_grid_size: Tuple[int, int] = (8, 8),
+) -> np.ndarray:
+    """Apply CLAHE (Contrast Limited Adaptive Histogram Equalization) using OpenCV per-slice operations.
+
+    Args:
+        volume (np.ndarray): 3D stack
+        clip_limit (float, optional): Threshold for contrast limiting. Defaults to 2.0.
+        tile_grid_size (Tuple[int, int], optional): Size of grid for histogram equalization. Defaults to (8, 8).
+
+    Returns:
+        np.ndarray: The contrast-enhanced volume.
+    """
+    z, y, x = volume.shape
+    out = np.empty_like(volume, dtype=np.float32)
+    clahe = cv.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid_size)
+    for i in range(z):
+        img8 = np.clip(volume[i] * 255, 0, 255).astype(np.uint8)
+        clahe_img8 = clahe.apply(img8)
+        out[i] = clahe_img8.astype(np.float32) / 255.0
+    return out
+
+
+def clahe_3d_skimage(
+    volume: np.ndarray,
+    clip_limit: float = 0.01,
+    nbins: int = 256,
+    kernel_size: Tuple[int, int] = (8, 8),
+) -> np.ndarray:
+    """Apply CLAHE (Contrast Limited Adaptive Histogram Equalization) using skimage per-slice operations.
+
+    Args:
+        volume (np.ndarray): 3D stack
+        clip_limit (float, optional): Normalized threshold for contrast limiting. Defaults to 0.01.
+        nbins (int, optional): Number of histogram bins. Defaults to 256.
+        kernel_size (Tuple[int, int], optional): Size of grid for histogram equalization. Defaults to (8, 8).
+
+    Returns:
+        np.ndarray: The contrast-enhanced volume.
+    """
+    z, y, x = volume.shape
+    out = np.empty_like(volume, dtype=np.float32)
+    for i in range(z):
+        out[i] = exposure.equalize_adapthist(
+            volume[i],
+            clip_limit=clip_limit,
+            nbins=nbins,
+            kernel_size=kernel_size,
+        )
+    return out
+
+
+def preprocess_stack(
+    stack: np.ndarray,
+    cfg: Dict[str, Any],
+) -> np.ndarray:
+    """Preprocess the input stack based on the provided configuration.
+
+    Args:
+        stack: Input 3D numpy array representing the stack.
+        cfg: Configuration dictionary specifying preprocessing steps.
+
+    Returns:
+        Preprocessed 3D numpy array.
+    """
+    preprocessed_stack = stack.copy()
+    print(cfg)
+
+    pcts = tuple(cfg.get("normalize_pcts", (0.5, 99.5)))
+    preprocessed_stack, p1, p2 = clip_and_scale(preprocessed_stack, pcts=pcts)
+    print(f"Clipped and scaled using percentiles: {p1:.2e}-{p2:.2e}")
+
+    if cfg.get("n4_bias_correction", False):
+        bias_field, preprocessed_stack = n4_bias_correction_sitk(preprocessed_stack)
+        print("Applied N4 bias field correction.")
+
+    if cfg.get("gaussian_filter", False):
+        sigma = cfg.get("gaussian_sigma", 1.0)
+        preprocessed_stack = gaussian_3d(preprocessed_stack, sigma=sigma)
+        print(f"Applied 3D Gaussian filter with sigma={sigma}.")
+
+    if cfg.get("nlm_denoising", False):
+        h = cfg.get("nlm_h", 0.9)
+        template_window = cfg.get("nlm_template_window", 5)
+        search_window = cfg.get("nlm_search_window", 13)
+        preprocessed_stack = nlm2d_opencv(
+            preprocessed_stack,
+            h=h,
+            template_window=template_window,
+            search_window=search_window,
+        )
+        print(f"Applied 2D Non-Local Means denoising with h={h}.")
+
+    if cfg.get("clahe", False):
+        clip_limit = cfg.get("clahe_clip_limit", 2.0)
+        kernel_size = tuple(cfg.get("clahe_tile_grid_size", (8, 8)))
+        preprocessed_stack = clahe_3d_skimage(
+            preprocessed_stack,
+            clip_limit=clip_limit,
+            nbins=256,
+            kernel_size=kernel_size,
+        )
+        print(
+            f"Applied CLAHE with clip_limit={clip_limit} and kernel_size={kernel_size}."
+        )
+
+    return preprocessed_stack
 
 
 if __name__ == "__main__":
