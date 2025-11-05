@@ -50,4 +50,4 @@ if __name__ == '__main__':
     interior_mask = gradient_aware_filter(gauss)
 
     save_stack(interior_mask.astype(np.uint8) * 255, "data/results/Litarion_gradmask.tif")
-    print("✅ Saved gradient-aware mask to data/results/Litarion_gradmask.tif")
+    print(" Saved gradient-aware mask to data/results/Litarion_gradmask.tif")
