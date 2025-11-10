@@ -49,6 +49,7 @@ def run_pipeline(
     #     fg_class=2,
     #     bg_class=0,
     # )
+    save_stack(labels, out_mask_path)
 
     # save_stack(fg_mask, out_mask_path)
 

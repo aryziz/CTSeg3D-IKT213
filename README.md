@@ -34,7 +34,6 @@ pip install pre-commit
 pre-commit install
 ```
 
-
 ## Running pipeline
 
 ```bash
@@ -44,6 +43,7 @@ python run_pipeline.py --in-dir data/raw --cfg config/test.yaml --out-dir result
 # Process a single file
 python run_pipeline.py --file data/Litarion.tif --cfg config/test.yaml --out-dir results/
 ```
+
 
 # 📂 Project Structure
 
