@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from xctp.preprocess import preprocess_stack
+from xctp.seeds import multi_otsu_3d
 from xctp.utils.tif import read_tif, save_stack, tif_to_float32
 
 
@@ -34,11 +35,24 @@ def run_pipeline(
 
     # Seeding
     # seeding_cfg = cfg.get("seeding", {})
-    # seeds = generate_seeds(preprocessed_stack, seeding_cfg)
+    thresholds, labels, icv = multi_otsu_3d(preprocessed_stack)
+
+    print(f"Threshold: {thresholds}, Interclass: {icv}")
 
     # Segmentation
     # segmentation_cfg = cfg.get("segmentation", {})
-    # mask = segment_stack(preprocessed_stack, seeds, segmentation_cfg)
+
+    # refined_labels, fg_mask = segment_uncertain_gc_gco(
+    #     volume=preprocessed_stack,
+    #     labeled_volume=labels,
+    #     uncertain_class=1,
+    #     fg_class=2,
+    #     bg_class=0,
+    # )
+
+    # save_stack(fg_mask, out_mask_path)
+
+    print("Finished segmentation.")
 
     # Save output mask
     # save_tiff_stack(mask, out_mask_path)
