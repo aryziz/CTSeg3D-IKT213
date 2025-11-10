@@ -5,6 +5,8 @@ Run the XCT pipeline over all .tif/.tiff stacks in an input directory.
 Usage:
   python run_pipeline.py --in-dir data/raw --cfg config/test.yaml
                                         --out-dir results/run_001
+  python run_pipeline.py --file data/raw/sample.tif --cfg config/test.yaml
+                                        --out-dir results/run_001
 """
 
 from __future__ import annotations
@@ -24,14 +26,21 @@ from xctp.pipeline import run_pipeline  # noqa: E402
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="""Run XCT filtering/segmentation
-        pipeline over a directory of stacks."""
+        pipeline over a directory of stacks or a single file."""
     )
-    p.add_argument(
+
+    input_group = p.add_mutually_exclusive_group(required=True)
+    input_group.add_argument(
         "--in-dir",
-        required=True,
         type=Path,
         help="Directory containing input .tif/.tiff stack(s).",
     )
+    input_group.add_argument(
+        "--file",
+        type=Path,
+        help="Single .tif/.tiff file to process.",
+    )
+
     p.add_argument(
         "--cfg",
         required=True,
@@ -47,7 +56,7 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument(
         "--recursive",
         action="store_true",
-        help="Recurse into subdirectories when searching for stacks.",
+        help="Recurse into subdirectories when searching for stacks (only with --in-dir).",
     )
     p.add_argument(
         "--write-preproc",
@@ -77,12 +86,32 @@ def _find_stacks(in_dir: Path, recursive: bool) -> list[Path]:
 def main() -> int:
     args = _parse_args()
 
-    if not args.in_dir.exists() or not args.in_dir.is_dir():
-        print(
-            f"[ERROR] --in-dir not found or not a directory: {args.in_dir}",
-            file=sys.stderr,
-        )
-        return 2
+    # Validate inputs
+    if args.file:
+        if not args.file.exists():
+            print(f"[ERROR] --file not found: {args.file}", file=sys.stderr)
+            return 2
+        if not args.file.is_file():
+            print(f"[ERROR] --file is not a file: {args.file}", file=sys.stderr)
+            return 2
+        if args.file.suffix.lower() not in [".tif", ".tiff"]:
+            print(
+                f"[ERROR] --file must be a .tif or .tiff file: {args.file}",
+                file=sys.stderr,
+            )
+            return 2
+        stacks = [args.file.resolve()]
+        input_source = str(args.file.resolve())
+    else:
+        if not args.in_dir.exists() or not args.in_dir.is_dir():
+            print(
+                f"[ERROR] --in-dir not found or not a directory: {args.in_dir}",
+                file=sys.stderr,
+            )
+            return 2
+        stacks = _find_stacks(args.in_dir, args.recursive)
+        input_source = str(args.in_dir.resolve())
+
     if not args.cfg.exists():
         print(f"[ERROR] --cfg not found: {args.cfg}", file=sys.stderr)
         return 2
@@ -91,7 +120,6 @@ def main() -> int:
 
     cfg = _load_cfg(args.cfg)
 
-    stacks = _find_stacks(args.in_dir, args.recursive)
     if not stacks:
         print(
             f"[WARN] No .tif/.tiff files found in {args.in_dir} (recursive={args.recursive})."
@@ -101,10 +129,11 @@ def main() -> int:
     # Session log
     session: Dict[str, Any] = {
         "timestamp": datetime.utcnow().isoformat(timespec="seconds") + "Z",
-        "input_dir": str(args.in_dir.resolve()),
+        "input_source": input_source,
+        "input_mode": "file" if args.file else "directory",
         "config_file": str(args.cfg.resolve()),
         "output_dir": str(args.out_dir.resolve()),
-        "recursive": bool(args.recursive),
+        "recursive": bool(args.recursive) if args.in_dir else False,
         "write_preproc": bool(args.write_preproc),
         "num_inputs": len(stacks),
         "files": [],
@@ -122,7 +151,7 @@ def main() -> int:
 
         print(f"[{i}/{len(stacks)}] Processing: {in_path.name}")
         try:
-            cfg_run = dict(cfg)  # shallow copy
+            cfg_run = dict(cfg)
             cfg_run.setdefault("io", {})
             cfg_run["io"].update(
                 {
@@ -148,7 +177,6 @@ def main() -> int:
             err_msg = f"{type(e).__name__}: {e}"
             print(f"[ERROR] {in_path.name}: {err_msg}", file=sys.stderr)
 
-        # Append file record
         session["files"].append(
             {
                 "input": str(in_path),
@@ -159,7 +187,6 @@ def main() -> int:
             }
         )
 
-    # Write session log (JSON) and a copy of the config used
     (args.out_dir / "run_log.json").write_text(json.dumps(session, indent=2))
     cfg_copy_path = (
         args.out_dir

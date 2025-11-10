@@ -1,53 +1,119 @@
-import os
+from typing import Any, Tuple
+
 import numpy as np
-import tifffile as tiff
 from scipy import ndimage as ndi
+from skimage.filters import threshold_multiotsu, threshold_otsu
+from skimage.morphology import ball
 
 
+# ---------- gradients ----------
+def sobel_3d_gradient(volume: np.ndarray) -> np.ndarray:
+    v = volume.astype(np.float32, copy=False)
+    gx = ndi.sobel(v, axis=0, mode="nearest")
+    gy = ndi.sobel(v, axis=1, mode="nearest")
+    gz = ndi.sobel(v, axis=2, mode="nearest")
+    gxy = np.hypot(gx, gy, dtype=np.float32)
+    return np.hypot(gxy, gz, dtype=np.float32)
 
-"""
-def load_volume(data_dir):
-    tif_files = sorted([f for f in os.listdir(data_dir) if f.endswith('.tif')])
-    slices = []
-    for f in tif_files:
-        path = os.path.join(data_dir, f)
-        imf = tiff.imread(path)
-        slices.append(img)
-    volume = np.stack(slices, axis=0)
-    return volume
+
+# ---------- utilities ----------
+
+
+def multi_otsu_3d(
+    volume: np.ndarray,
+    classes: int = 3,
+    min_bg_size: int = 5000,
+    max_bg_size: int = 200000,
+) -> Tuple[Any, Any, float | int]:
     """
-
-
-def sobel_3d_gradient(volume):
-    gx = ndi.sobel(volume, axis=0)
-    gy = ndi.sobel(volume, axis=1)
-    gz = ndi.sobel(volume, axis=2)
-    grad_mag = np.sqrt(gx**2 + gy**2 + gz**2)
-    return grad_mag
-
-def gradient_aware_filter(volume, percentile=70):
+    3D multi-Otsu segmentation with background exclusion.
+    Returns thresholds, labeled volume, and interclass variance.
     """
-      Keep only voxels below gradient percentile threshold (interior regions).
-      If seeds are provided, mask them; otherwise, return the interior mask.
-      """
-    grad = sobel_3d_gradient(volume)
-    cutoff =  np.percentile(grad, percentile)
-    mask = grad < cutoff
-    return mask
+    v = volume.astype(np.float32, copy=False)
 
-if __name__ == '__main__':
-    from utils.tif import read_tif, save_stack, tif_to_float32
-    from preprocess import clip_and_scale, gaussian_3d
+    # Detect background using Otsu threshold
+    try:
+        otsu_threshold = threshold_otsu(v)
+        background_threshold = otsu_threshold * 0.3
+    except Exception:
+        background_threshold = np.percentile(v, 2)
 
-    v_raw = read_tif("data/Litarion.tif")
-    v = tif_to_float32(v_raw)
+    # Create background mask from largest low-intensity region
+    low_intensity_mask = v < background_threshold
 
-    v_scaled, p1, p2 = clip_and_scale(v, pcts=(0.5, 99.5))
-    print(f"Scaled to [0,1] using percentiles: {p1:.2e}-{p2:.2e}")
-    print(f"min, max =", np.min(v_scaled), np.max(v_scaled))
+    if np.any(low_intensity_mask):
+        labeled_mask, num_features = ndi.label(low_intensity_mask)
 
-    gauss = gaussian_3d(v_scaled)
-    interior_mask = gradient_aware_filter(gauss)
+        if num_features > 0:
+            component_sizes = np.bincount(labeled_mask.ravel())
+            if len(component_sizes) > 1:
+                largest_component = np.argmax(component_sizes[1:]) + 1
+                background_mask = labeled_mask == largest_component
 
-    save_stack(interior_mask.astype(np.uint8) * 255, "data/results/Litarion_gradmask.tif")
-    print(" Saved gradient-aware mask to data/results/Litarion_gradmask.tif")
+                # Apply size constraints to background region
+                region_size = component_sizes[largest_component]
+                if min_bg_size <= region_size <= max_bg_size:
+                    background_mask = ndi.binary_dilation(
+                        background_mask, structure=ball(1)
+                    )
+                else:
+                    background_mask = low_intensity_mask
+            else:
+                background_mask = low_intensity_mask
+        else:
+            background_mask = low_intensity_mask
+    else:
+        background_mask = np.zeros_like(v, dtype=bool)
+
+    # Segment only foreground regions
+    foreground_mask = ~background_mask
+    foreground_data = v[foreground_mask]
+
+    if foreground_data.size == 0:
+        return np.array([]), np.zeros_like(v, dtype=np.uint8), float("nan")
+
+    # Apply multi-Otsu to foreground
+    thresholds = threshold_multiotsu(foreground_data, classes=classes)
+
+    # Label the volume (0 = background, 1..classes = foreground classes)
+    labeled_volume = np.zeros_like(v, dtype=np.uint8)
+
+    if foreground_data.size == 0:
+        # nothing to segment; return empty foreground and NaN variance
+        return np.array([]), labeled_volume, float("nan")
+
+    t = thresholds  # len = classes-1
+
+    # First foreground class
+    labeled_volume[foreground_mask & (v <= t[0])] = 1
+
+    # Middle classes (if any)
+    for i in range(1, len(t)):
+        mask = foreground_mask & (v > t[i - 1]) & (v <= t[i])
+        labeled_volume[mask] = i + 1
+
+    # Last foreground class
+    labeled_volume[foreground_mask & (v > t[-1])] = classes
+
+    # Interclass variance over foreground classes (background=0 is excluded)
+    N_fg = int(foreground_mask.sum())
+    if N_fg == 0:
+        interclass_variance = float("nan")
+    else:
+        global_mean = float(v[foreground_mask].mean())
+
+        class_means = []
+        class_weights = []
+        for c in range(1, classes + 1):  # foreground classes only
+            cmask = labeled_volume == c
+            n = int(cmask.sum())
+            if n == 0:
+                continue
+            class_means.append(float(v[cmask].mean()))
+            class_weights.append(n / N_fg)
+
+        interclass_variance = sum(
+            w * (m - global_mean) ** 2 for w, m in zip(class_weights, class_means)
+        )
+
+    return thresholds, labeled_volume, interclass_variance
