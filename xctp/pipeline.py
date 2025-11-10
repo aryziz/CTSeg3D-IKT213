@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 
 from xctp.preprocess import preprocess_stack
 from xctp.seeds import multi_otsu_3d
+from xctp.segment import binary_hysteresis_xct
 from xctp.utils.tif import read_tif, save_stack, tif_to_float32
 
 
@@ -36,20 +37,18 @@ def run_pipeline(
     # Seeding
     # seeding_cfg = cfg.get("seeding", {})
     thresholds, labels, icv = multi_otsu_3d(preprocessed_stack)
+    t1, t2 = thresholds
+    foreground_mask = labels > 0
 
     print(f"Threshold: {thresholds}, Interclass: {icv}")
 
     # Segmentation
     # segmentation_cfg = cfg.get("segmentation", {})
 
-    # refined_labels, fg_mask = segment_uncertain_gc_gco(
-    #     volume=preprocessed_stack,
-    #     labeled_volume=labels,
-    #     uncertain_class=1,
-    #     fg_class=2,
-    #     bg_class=0,
-    # )
-    save_stack(labels, out_mask_path)
+    bin_mask = binary_hysteresis_xct(
+        preprocessed_stack, t1, t2, foreground_mask=foreground_mask, debug=True
+    )
+    save_stack(bin_mask, out_mask_path)
 
     # save_stack(fg_mask, out_mask_path)
 
