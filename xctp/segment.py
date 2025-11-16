@@ -2,12 +2,34 @@ import numpy as np
 from scipy import ndimage as ndi
 
 
+def _estimate_q_tail(
+    dark_band: np.ndarray, bright_band: np.ndarray, target_seed_fraction: float = 0.15
+) -> float:
+    """Adaptively set q_tail to get ~15% of each band as seeds
+    Handles cases where bands are narrow or wide
+
+    Args:
+        dark_band: Voxels in the dark band.
+        bright_band: Voxels in the bright band.
+        target_seed_fraction: Target fraction of voxels to be selected as seeds.
+
+    Returns:
+        Estimated q_tail value.
+    """
+    dark_std = np.std(dark_band)
+    bright_std = np.std(bright_band)
+
+    avg_std = 0.5 * (dark_std + bright_std)
+    q_tail = np.clip(0.3 * (avg_std / 0.1), 0.1, 0.4)
+    return q_tail
+
+
 def binarise(
     volume: np.ndarray,
     t1: float,
     t2: float,
     foreground_mask: np.ndarray | None = None,
-    q_tail: float = 0.30,
+    q_tail: float | None = None,
     connectivity: int = 1,
     debug: bool = False,
 ) -> np.ndarray:
@@ -19,6 +41,16 @@ def binarise(
     dark = (v < t1) & foreground_mask
     mid = (v >= t1) & (v < t2) & foreground_mask
     bright = (v >= t2) & foreground_mask
+
+    if q_tail is None:
+        if dark.any() and bright.any():
+            q_tail = _estimate_q_tail(v[dark], v[bright])
+            if debug:
+                print(f"Auto-estimated q_tail: {q_tail:.3f}")
+        else:
+            q_tail = 0.30  # Fallback default
+            if debug:
+                print(f"Using default q_tail: {q_tail:.3f} (insufficient data)")
 
     if debug:
         print(
