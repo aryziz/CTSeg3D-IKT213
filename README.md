@@ -38,7 +38,7 @@ pre-commit install
 
 ```bash
 # Process a directory
-python run_pipeline.py --in-dir data/raw --cfg config/test.yaml --out-dir results/run_001
+python run_pipeline.py --in-dir data/ --cfg config/default.yml --out-dir results/run_001
 
 # Process a single file
 python run_pipeline.py --file data/Litarion.tif --cfg config/test.yaml --out-dir results/

@@ -3,9 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from xctp.postprocess import fill_internal_pores, postprocess_mask
 from xctp.preprocess import preprocess_stack
 from xctp.seeds import multi_otsu_3d
-from xctp.segment import binary_hysteresis_xct
+from xctp.segment import binarise
 from xctp.utils.tif import read_tif, save_stack, tif_to_float32
 
 
@@ -45,12 +46,18 @@ def run_pipeline(
     # Segmentation
     # segmentation_cfg = cfg.get("segmentation", {})
 
-    bin_mask = binary_hysteresis_xct(
+    bin_mask = binarise(
         preprocessed_stack, t1, t2, foreground_mask=foreground_mask, debug=True
     )
-    save_stack(bin_mask, out_mask_path)
 
-    # save_stack(fg_mask, out_mask_path)
+    postprocess_cfg = cfg.get("postprocess", {})
+    morphological_post = postprocess_mask(
+        bin_mask,
+        radius=postprocess_cfg.get("radius", 1),
+    )
+    postprocessed_mask = fill_internal_pores(morphological_post)
+
+    save_stack(postprocessed_mask, out_mask_path)
 
     print("Finished segmentation.")
 

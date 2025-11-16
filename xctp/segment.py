@@ -2,7 +2,7 @@ import numpy as np
 from scipy import ndimage as ndi
 
 
-def binary_hysteresis_xct(
+def binarise(
     volume: np.ndarray,
     t1: float,
     t2: float,

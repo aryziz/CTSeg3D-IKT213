@@ -25,5 +25,4 @@ segment:
   # data_scale: 1.0          # scale data term vs smoothness
 
 post:
-  min_object_um: 1.0
-  fill_holes_um: 2.0
+  radius: 1
