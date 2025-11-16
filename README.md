@@ -1,5 +1,35 @@
 # 🚀 Quickstart - Installation Guide
 
+## Running pipeline
+
+1. Create & activate virtual environment (venv)
+
+```bash
+python -m venv .venv
+# Windows
+.\.venv\Scripts\activate.bat
+
+# Linux/macOS
+source .venv/bin/activate
+```
+
+2. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+3. Run entry file with required flags
+
+```bash
+# Process a directory
+python run_pipeline.py --in-dir data/ --cfg config/default.yml --out-dir results/run_001
+
+# Process a single file
+python run_pipeline.py --file data/Litarion.tif --cfg config/test.yaml --out-dir results/
+```
+
+## For Developers
 
 1. Clone the repo
 
@@ -32,16 +62,6 @@ pip install -r requirements.txt
 ```
 pip install pre-commit
 pre-commit install
-```
-
-## Running pipeline
-
-```bash
-# Process a directory
-python run_pipeline.py --in-dir data/ --cfg config/default.yml --out-dir results/run_001
-
-# Process a single file
-python run_pipeline.py --file data/Litarion.tif --cfg config/test.yaml --out-dir results/
 ```
 
 
