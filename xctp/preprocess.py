@@ -2,6 +2,7 @@ from typing import Any, Dict, Tuple
 
 import cv2 as cv
 import numpy as np
+import scipy.ndimage as ndi
 import SimpleITK as sitk
 import tifffile as tiff
 from scipy.ndimage import gaussian_filter
@@ -38,6 +39,13 @@ def clip_and_scale(
 
     np.clip(scaled, 0.0, 1.0, out=scaled)
     return scaled, float(p1), float(p2)
+
+
+def _estimate_noise_sigma(volume: np.ndarray) -> float:
+    H = volume - ndi.gaussian_filter(volume, sigma=1.0)
+    # Donoho's method for noise estimation
+    sigma_noise = 1.4826 * np.median(np.abs(H - np.median(H)))
+    return sigma_noise
 
 
 def n4_bias_correction_sitk(volume: np.ndarray) -> Tuple[np.float32, np.ndarray]:
@@ -207,9 +215,11 @@ def preprocess_stack(
         print("Applied N4 bias field correction.")
 
     if cfg.get("gaussian_filter", False):
-        sigma = cfg.get("gaussian_sigma", 1.0)
-        preprocessed_stack = gaussian_3d(preprocessed_stack, sigma=sigma)
-        print(f"Applied 3D Gaussian filter with sigma={sigma}.")
+        # sigma = cfg.get("gaussian_sigma", 1.0)
+        estimate_sigma = _estimate_noise_sigma(preprocessed_stack)
+        sigma_noise = max(0.5, min(2.0, 2 * estimate_sigma))
+        preprocessed_stack = gaussian_3d(preprocessed_stack, sigma=sigma_noise)
+        print(f"Applied 3D Gaussian filter with sigma={sigma_noise}.")
 
     if cfg.get("nlm_denoising", False):
         h = cfg.get("nlm_h", 0.9)

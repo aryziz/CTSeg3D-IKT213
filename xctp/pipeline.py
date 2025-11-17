@@ -3,7 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from xctp.postprocess import fill_internal_pores, postprocess_mask
 from xctp.preprocess import preprocess_stack
+from xctp.seeds import multi_otsu_3d
+from xctp.segment import binarise
 from xctp.utils.tif import read_tif, save_stack, tif_to_float32
 
 
@@ -34,11 +37,29 @@ def run_pipeline(
 
     # Seeding
     # seeding_cfg = cfg.get("seeding", {})
-    # seeds = generate_seeds(preprocessed_stack, seeding_cfg)
+    thresholds, labels, icv = multi_otsu_3d(preprocessed_stack)
+    t1, t2 = thresholds
+    foreground_mask = labels > 0
+
+    print(f"Threshold: {thresholds}, Interclass: {icv}")
 
     # Segmentation
     # segmentation_cfg = cfg.get("segmentation", {})
-    # mask = segment_stack(preprocessed_stack, seeds, segmentation_cfg)
+
+    bin_mask = binarise(
+        preprocessed_stack, t1, t2, foreground_mask=foreground_mask, debug=True
+    )
+
+    postprocess_cfg = cfg.get("postprocess", {})
+    morphological_post = postprocess_mask(
+        bin_mask,
+        radius=postprocess_cfg.get("radius", 1),
+    )
+    postprocessed_mask = fill_internal_pores(morphological_post)
+
+    save_stack(postprocessed_mask, out_mask_path)
+
+    print("Finished segmentation.")
 
     # Save output mask
     # save_tiff_stack(mask, out_mask_path)
