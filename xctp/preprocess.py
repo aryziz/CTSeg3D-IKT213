@@ -43,7 +43,7 @@ def clip_and_scale(
 
 def _estimate_noise_sigma(volume: np.ndarray) -> float:
     H = volume - ndi.gaussian_filter(volume, sigma=1.0)
-    # Donoho's method for noise estimation
+    # Median absolute deviation
     sigma_noise = 1.4826 * np.median(np.abs(H - np.median(H)))
     return sigma_noise
 
@@ -234,7 +234,7 @@ def preprocess_stack(
         print(f"Applied 2D Non-Local Means denoising with h={h}.")
 
     if cfg.get("clahe", False):
-        clip_limit = cfg.get("clahe_clip_limit", 2.0)
+        clip_limit = cfg.get("clahe_clip_limit", 0.5)
         kernel_size = tuple(cfg.get("clahe_tile_grid_size", (8, 8)))
         preprocessed_stack = clahe_3d_skimage(
             preprocessed_stack,
