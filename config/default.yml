@@ -1,8 +1,13 @@
 preprocess:
   normalize_pcts: [0.5, 99.5]
   n4_bias_correction: false
-  gaussian_filter: true
+  gaussian_filter: false
   nlm_denoising: false
+  anisotropic_diffusion: true
+  ad_niter: 5
+  ad_kappa: 20.0
+  ad_gamma: 0.1
+  ad_option: 1
   clahe: false
   clahe_clip_limit: 0.5
   gaussian_sigma: 1.0
