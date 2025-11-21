@@ -1,4 +1,4 @@
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Literal, Tuple
 
 import cv2 as cv
 import numpy as np
@@ -43,7 +43,7 @@ def clip_and_scale(
 
 def _estimate_noise_sigma(volume: np.ndarray) -> float:
     H = volume - ndi.gaussian_filter(volume, sigma=1.0)
-    # Donoho's method for noise estimation
+    # Median absolute deviation
     sigma_noise = 1.4826 * np.median(np.abs(H - np.median(H)))
     return sigma_noise
 
@@ -190,6 +190,71 @@ def clahe_3d_skimage(
     return out
 
 
+def anisotropic_diffusion(
+    volume: np.ndarray,
+    niter: int = 10,
+    kappa: float = 20.0,
+    gamma: float = 0.1,
+    option: Literal[1] | Literal[2] = 1,
+) -> np.ndarray:
+    """Perona-Malik anisotropic diffusion for 3D volumes
+
+    Args:
+        volume (np.ndarray): Input 3D volume (z,y,x)
+        niter (int, optional): Number of iterations. Defaults to 10.
+        kappa (float, optional): Conduction coefficient (edge threshold). Defaults to 20.0.
+        gamma (float, optional): Time step. Defaults to 0.1.
+        option (int, optional):
+        1 -> c(s) = exp(-(s/kappa)^2)
+        2 -> c(s) = 1 / (1 + (s/kappa)^2)
+        Defaults to 1.
+
+    Returns:
+        np.ndarray: Diffused volume
+    """
+
+    for _ in range(niter):
+        deltaU = np.zeros_like(volume)
+        deltaD = np.zeros_like(volume)
+        deltaU[:-1, :, :] = volume[1:, :, :] - volume[:-1, :, :]
+        deltaD[1:, :, :] = volume[:-1, :, :] - volume[1:, :, :]
+
+        deltaN = np.zeros_like(volume)
+        deltaS = np.zeros_like(volume)
+        deltaN[:, :-1, :] = volume[:, 1:, :] - volume[:, :-1, :]
+        deltaS[:, 1:, :] = volume[:, :-1, :] - volume[:, 1:, :]
+
+        deltaE = np.zeros_like(volume)
+        deltaW = np.zeros_like(volume)
+        deltaE[:, :, :-1] = volume[:, :, 1:] - volume[:, :, :-1]
+        deltaW[:, :, 1:] = volume[:, :, :-1] - volume[:, :, 1:]
+
+        if option == 1:
+            cU = np.exp(-((deltaU / kappa) ** 2))
+            cD = np.exp(-((deltaD / kappa) ** 2))
+            cN = np.exp(-((deltaN / kappa) ** 2))
+            cS = np.exp(-((deltaS / kappa) ** 2))
+            cE = np.exp(-((deltaE / kappa) ** 2))
+            cW = np.exp(-((deltaW / kappa) ** 2))
+        else:
+            cU = 1.0 / (1.0 + (deltaU / kappa) ** 2)
+            cD = 1.0 / (1.0 + (deltaD / kappa) ** 2)
+            cN = 1.0 / (1.0 + (deltaN / kappa) ** 2)
+            cS = 1.0 / (1.0 + (deltaS / kappa) ** 2)
+            cE = 1.0 / (1.0 + (deltaE / kappa) ** 2)
+            cW = 1.0 / (1.0 + (deltaW / kappa) ** 2)
+
+        volume += gamma * (
+            cU * deltaU
+            + cD * deltaD
+            + cN * deltaN
+            + cS * deltaS
+            + cE * deltaE
+            + cW * deltaW
+        )
+        return volume
+
+
 def preprocess_stack(
     stack: np.ndarray,
     cfg: Dict[str, Any],
@@ -217,9 +282,26 @@ def preprocess_stack(
     if cfg.get("gaussian_filter", False):
         # sigma = cfg.get("gaussian_sigma", 1.0)
         estimate_sigma = _estimate_noise_sigma(preprocessed_stack)
+        print(f"Estimated sigma: {estimate_sigma:.3f}")
         sigma_noise = max(0.5, min(2.0, 2 * estimate_sigma))
         preprocessed_stack = gaussian_3d(preprocessed_stack, sigma=sigma_noise)
         print(f"Applied 3D Gaussian filter with sigma={sigma_noise}.")
+
+    if cfg.get("anisotropic_diffusion", False):
+        niter = cfg.get("ad_niter", 10)
+        kappa = cfg.get("ad_kappa", 20.0)
+        gamma = cfg.get("ad_gamma", 0.1)
+        option = cfg.get("ad_option", 1)
+        preprocessed_stack = anisotropic_diffusion(
+            preprocessed_stack,
+            niter=niter,
+            kappa=kappa,
+            gamma=gamma,
+            option=option,
+        )
+        print(
+            f"Applied Anisotropic Diffusion with niter={niter}, kappa={kappa}, gamma={gamma}, option={option}."
+        )
 
     if cfg.get("nlm_denoising", False):
         h = cfg.get("nlm_h", 0.9)
@@ -234,7 +316,7 @@ def preprocess_stack(
         print(f"Applied 2D Non-Local Means denoising with h={h}.")
 
     if cfg.get("clahe", False):
-        clip_limit = cfg.get("clahe_clip_limit", 2.0)
+        clip_limit = cfg.get("clahe_clip_limit", 0.5)
         kernel_size = tuple(cfg.get("clahe_tile_grid_size", (8, 8)))
         preprocessed_stack = clahe_3d_skimage(
             preprocessed_stack,
