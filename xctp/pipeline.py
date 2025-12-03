@@ -36,8 +36,11 @@ def run_pipeline(
         save_stack(preprocessed_stack, out_preproc_path)
 
     # Seeding
-    # seeding_cfg = cfg.get("seeding", {})
-    thresholds, labels, icv = multi_otsu_3d(preprocessed_stack)
+    seeding_cfg = cfg.get("seeding", {})
+    max_bg_size = seeding_cfg.get("max_bg_size", 200000)
+    min_bg_size = seeding_cfg.get("min_bg_size", 5000)
+    classes = seeding_cfg.get("class", 3)
+    thresholds, labels, icv = multi_otsu_3d(preprocessed_stack, classes=classes, min_bg_size=min_bg_size, max_bg_size=max_bg_size)
     t1, t2 = thresholds
     foreground_mask = labels > 0
 
