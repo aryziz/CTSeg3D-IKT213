@@ -36,7 +36,6 @@ def run_pipeline(
         save_stack(preprocessed_stack, out_preproc_path)
 
     # Seeding
-    # seeding_cfg = cfg.get("seeding", {})
     thresholds, labels, icv = multi_otsu_3d(preprocessed_stack)
     t1, t2 = thresholds
     foreground_mask = labels > 0
@@ -44,8 +43,6 @@ def run_pipeline(
     print(f"Threshold: {thresholds}, Interclass: {icv}")
 
     # Segmentation
-    # segmentation_cfg = cfg.get("segmentation", {})
-
     bin_mask = binarise(
         preprocessed_stack, t1, t2, foreground_mask=foreground_mask, debug=True
     )
@@ -60,6 +57,3 @@ def run_pipeline(
     save_stack(postprocessed_mask, out_mask_path)
 
     print("Finished segmentation.")
-
-    # Save output mask
-    # save_tiff_stack(mask, out_mask_path)
