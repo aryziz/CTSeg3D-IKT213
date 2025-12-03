@@ -40,15 +40,19 @@ def run_pipeline(
     max_bg_size = seeding_cfg.get("max_bg_size", 200000)
     min_bg_size = seeding_cfg.get("min_bg_size", 5000)
     classes = seeding_cfg.get("class", 3)
-    thresholds, labels, icv = multi_otsu_3d(preprocessed_stack, classes=classes, min_bg_size=min_bg_size, max_bg_size=max_bg_size)
+    thresholds, labels, icv = multi_otsu_3d(
+        preprocessed_stack,
+        classes=classes,
+        min_bg_size=min_bg_size,
+        max_bg_size=max_bg_size,
+    )
+
     t1, t2 = thresholds
     foreground_mask = labels > 0
 
     print(f"Threshold: {thresholds}, Interclass: {icv}")
 
     # Segmentation
-    # segmentation_cfg = cfg.get("segmentation", {})
-
     bin_mask = binarise(
         preprocessed_stack, t1, t2, foreground_mask=foreground_mask, debug=True
     )
@@ -63,6 +67,3 @@ def run_pipeline(
     save_stack(postprocessed_mask, out_mask_path)
 
     print("Finished segmentation.")
-
-    # Save output mask
-    # save_tiff_stack(mask, out_mask_path)
