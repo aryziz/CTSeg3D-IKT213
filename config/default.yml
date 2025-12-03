@@ -6,23 +6,10 @@ preprocess:
   clahe: false
   gaussian_sigma: 1.0
 
-seeds:
-  method: otsu
-  # margin: 0.1
-  # grad_percentile: 70
-  # erosion_um: 1.0
-
-
-
-segment:
-  method: graphcut
-  target: mean_rank
-  rank: 1                # middle class when K=3
-  # lambda_smooth: 2.0       # ↑ = smoother boundaries
-  # sigma_edge: 0.05         # edge sensitivity on [0,1] intensities
-  # hard_seed_weight: 1.0e6  # keep seeds fixed
-  # band_dilate: 1           # give GC room to move (voxels)
-  # data_scale: 1.0          # scale data term vs smoothness
+seeding:
+  class: 3
+  min_bg_size : 5000
+  max_bg_size : 200000
 
 post:
   radius: 1
