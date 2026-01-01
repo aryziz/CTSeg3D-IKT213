@@ -25,6 +25,10 @@ pip install -r requirements.txt
 # Process a directory
 python run_pipeline.py --in-dir data/ --cfg config/default.yml --out-dir results/run_001
 
+# With preprocessing output
+python run_pipeline.py --write-preproc --in-dir data/ --cfg config/default.yml --out-dir results/run_001
+
+
 # Process a single file
 python run_pipeline.py --file data/Litarion.tif --cfg config/default.yml --out-dir results/
 ```

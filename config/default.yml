@@ -17,5 +17,5 @@ seeding:
   min_bg_size : 5000
   max_bg_size : 200000
 
-post:
+postprocess:
   radius: 1

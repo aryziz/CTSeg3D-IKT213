@@ -252,7 +252,7 @@ def anisotropic_diffusion(
             + cE * deltaE
             + cW * deltaW
         )
-        return volume
+    return volume
 
 
 def preprocess_stack(
